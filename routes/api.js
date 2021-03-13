@@ -4,7 +4,7 @@ const fetch = require("node-fetch");
 const router = express.Router();
 const connect = require("../config/sqlConfig");
 
-var currentitems = {};
+var newitems = {};
 var filtereditems = {};
 
 router.get("/", (req, res) => {
@@ -19,14 +19,14 @@ router.get("/media/:version/:type/", async function(req, res) {
     let type = req.params.type;
     let version = req.params.version;
     var list = await loadMedia();
-
-    res.json(list);
+    newitems = list;
+    res.json(newitems);
 
     async function loadMedia() {
             let k = 0;
             let url ="https://imdb8.p.rapidapi.com/title/get-best-picture-winners";
             if(type == "tv") {
-                url = "https://imdb8.p.rapidapi.com/title/get-top-rated-tv-shows";
+                url = "https://imdb8.p.rapidapi.com/title/get-most-popular-tv-shows?homeCountry=US&purchaseCountry=US&currentCountry=US";
             }
             let headers = {
                 "x-rapidapi-key": "6d810c5c17mshac4a8e74973b5f5p170738jsn1558e894e034",
@@ -48,9 +48,10 @@ router.get("/media/:version/:type/", async function(req, res) {
            async function getID(list) {
                 //getting the details for each title'
                 var deets ={}
+                var currentitems = {};
                 k = 0;
                 if(type == "movies") {
-                    for (var i = 0; i < 50; i++) {
+                    for (var i = 0; i < 80; i++) {
                         let movie_id = list[i];
                         movie_id = movie_id.substring(7);
                         movie_id = movie_id.substring(0, movie_id.length-1);
@@ -63,12 +64,16 @@ router.get("/media/:version/:type/", async function(req, res) {
   
                     return currentitems;
                 } else if (type == "tv") {
-                    for (var i = 0; i < max_items; i++) {
-                        let show_id = list[i].id;
+                    currentitems = {};
+                    for (var i = 0; i < 100; i++) {
+                        let show_id = list[i];
                         show_id = show_id.substring(7);
                         show_id = show_id.substring(0, show_id.length-1);
                         deets = await getDetails(show_id);
-                        currentitems[i] = deets;
+                        if(deets) {
+                            currentitems[k] = deets;
+                            k = k+1;
+                        }
                     }
                     return currentitems;
                 }
@@ -110,17 +115,19 @@ router.get("/media/:version/:type/", async function(req, res) {
             return await list;
         }}})
 
-        router.get("/media/:version/:type/:decade", async function(req, res) {
+        router.get("/media/:version/:type/:decade/", async function(req, res) {
             let decade = req.params.decade 
-            var range = {
-                "max_year": "0",
-                "min_year": "0"
-            }
-             await addRanges();
-             await filterDecade(range);
-
+            console.log(decade);
+             var newrange = await addRanges();
+             console.log(newrange);
+             filtereditems = await filterDecade(newrange)
+             res.json(filtereditems);
 
             function addRanges() {
+                let range = {
+                    "max_year": "0",
+                    "min_year": "0"
+                };
                 if(decade == "nineties") {
                     range.max_year = "1999";
                     range.min_year = "1990";
@@ -138,19 +145,20 @@ router.get("/media/:version/:type/", async function(req, res) {
                     range.min_year = "1950"; 
                 }
                 return range;
+
             }
             function filterDecade(range) {
-                let len = Object.entries(currentitems).length;
-                console.log(len);
+                let len = Object.entries(newitems).length;
+                let items = {};
                 for (let i = 0;i < len; i++) {
-                    if(currentitems[i].Year >= range.min_year && currentitems[i].Year <= range.max_year) {
-                        filtereditems[i] = currentitems[i];
+                    console.log(range);
+                    console.log(newitems[i].Year);
+                    if(newitems[i].Year >= range.min_year && newitems[i].Year <= range.max_year) {
+                        items[i] = newitems[i];
                     }
                 }
-                console.log(filtereditems);
+               return items;
             }
-
-            res.json({message: range})
         })
 
 
