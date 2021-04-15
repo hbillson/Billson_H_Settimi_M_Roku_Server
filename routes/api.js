@@ -17,7 +17,6 @@ router.get("/users", (req, res) => {
 
 router.get("/videos/:q/", async function(req, res) {
     let q = `${req.params.q} Trailer 1080p`;
-    console.log(q);
 
     let url = `https://youtube-search-results.p.rapidapi.com/youtube-search/?q=${q}`;
     var response = await fetch(url, {
@@ -48,7 +47,6 @@ router.get("/videos/:q/", async function(req, res) {
                 "x-rapidapi-host": "imdb8.p.rapidapi.com"
             }
             var list = await loadMedia();
-           // console.log(currentitems);
             console.log(list);
             res.json(list);
 
@@ -57,14 +55,16 @@ router.get("/videos/:q/", async function(req, res) {
                 // cut start here
 
             async function loadMedia() {
-                console.log(`loading ${version} ${type} ${decade}`);
                     let k = 0;
                     let url = "";
                     if(type == "tv") {
                         url = "https://imdb8.p.rapidapi.com/title/get-most-popular-tv-shows?homeCountry=US&purchaseCountry=US&currentCountry=US";
                     } else if (type == "movies") { 
                         url ="https://imdb8.p.rapidapi.com/title/get-best-picture-winners";
-                    }                
+                    } else if (type == "music") {
+                        let list = musicSearch();
+                        return await list;
+                    }
                     var response = await fetch(url, {
                         "method": "GET",
                         "headers": headers
@@ -72,9 +72,129 @@ router.get("/videos/:q/", async function(req, res) {
                     .then(response => response.json())
                     .then(data => getID(data))
                     .catch((err) => console.log(err));
-
-                    //console.log(await response);
                     return await response;
+                
+                async function musicSearch() {
+                    let headers = {
+                        "x-rapidapi-key": "6d810c5c17mshac4a8e74973b5f5p170738jsn1558e894e034",
+                        "x-rapidapi-host":  "youtube-search-results.p.rapidapi.com"
+                    }
+                        let q = ``
+                        if(decade == "fifties") {
+                            q = "1950s+hits+playlist";
+                        } else if (decade=="sixties") {
+                            q = "1960s+hits+playlist";
+                        } else if (decade=="seventies") {
+                            q = "1970s+hits+playlist";
+                        } else if (decade=="eighties") {
+                            q = "1980s+hits+playlist";
+                        } else if (decade=="nineties") {
+                            q = "1990s+hits+playlist";
+                        }
+                        url = `https://youtube-search-results.p.rapidapi.com/youtube-search/?q=${q}`;
+                        var response = await fetch(url, {
+                            "method": "GET",
+                            "headers": headers
+                        }) 
+                        .then(response => response.json())
+                        .then(data =>getSongs(data))
+                        .catch((err) => console.log(err));
+                        return await response;
+                    }
+                    
+                    async function getSongs(list) {
+                        let playlist = {};
+                        for(let i = 0; i<Object.entries(list).length; i++) {
+                            if(list["items"][i]["type"] == "playlist") {
+                                playlist = list["items"][i]["playlistID"];
+                                i = Object.entries(list).length;
+                            }
+                        }
+                        let headers = {
+                            "x-rapidapi-key": "6d810c5c17mshac4a8e74973b5f5p170738jsn1558e894e034",
+                            "x-rapidapi-host": "youtube-v31.p.rapidapi.com"
+                        }
+                      url = `https://youtube-v31.p.rapidapi.com/playlistItems?playlistId=${playlist}&part=snippet&maxResults=20`;
+                        var response = await fetch(url, {
+                         "method": "GET",
+                         "headers": headers
+                     }) 
+                     .then(response => response.json())
+                     .then(data => getInfo(data))
+                     .catch((err) => console.log(err));
+                     return await response;
+                     }
+
+                        
+                async function getInfo(list) {
+                    var currentitems = {};
+                    // var song = {};
+
+                    for (let i = 1; i<Object.entries(list["items"]).length; i++) {
+                        let song = {
+                            id: "",
+                            title: "",
+                            artist: "jimmy",
+                            cover: "https://cloud.netlifyusercontent.com/assets/344dbf88-fdf9-42bb-adb4-46f01eedd629/6d05daa9-225d-4bf2-9a78-5fcb52abce7a/58.jpg", 
+                        }
+                        let id = list["items"][i]["snippet"]["resourceId"]["videoId"];
+                        let title = list["items"][i]["snippet"]["title"];
+                        title = title.replace(/\s*\(.*?\)\s*/g, '');
+                        title = title.replace(/\s*\[.*?\]\s*/g, '');
+                        title = title.replace("HQ", "");
+                        title = title.replace("Audio", "");
+                        title = title.replace("HD", "");
+                        title = encodeURI(title);
+                        song.id = id;
+                        var deets = await getSongDeets(title);
+                        song.cover = deets.cover;
+                        song.artist = deets.artist;
+                        if(deets.title == "Unknown") {
+                            song.title = title
+                        } else {
+                            song.title = deets.title;
+                        }
+                         currentitems[i] = song;
+                    }
+                    return currentitems;
+                }
+
+                async function getSongDeets(song) {
+                    url = `https://deezerdevs-deezer.p.rapidapi.com/search?q=${song}`
+                    var response = await fetch(url, {
+                     "method": "GET",
+                     "headers": {
+                        "x-rapidapi-key": "6d810c5c17mshac4a8e74973b5f5p170738jsn1558e894e034",
+                        "x-rapidapi-host": "deezerdevs-deezer.p.rapidapi.com"
+                    }
+                 }) 
+                 .then(response => response.json())
+                 .then(data => deets(data))
+                 .catch((err) => console.log(err));
+                 return await response;
+
+                async function deets(song) {
+                    if(song["data"].length < 1) {
+                        var details = {
+                            "title": "Unknown",
+                            "artist": "Unknown Artist",
+                            "cover": "https://cloud.netlifyusercontent.com/assets/344dbf88-fdf9-42bb-adb4-46f01eedd629/6d05daa9-225d-4bf2-9a78-5fcb52abce7a/58.jpg",     
+                        }
+                        return details;
+ 
+                    } else {
+                        let cover = song["data"][0]["album"]["cover_big"];
+                        let artist = song["data"][0]["artist"]["name"];
+                        let title = song["data"][0]["title"];
+                        var details = {
+                            "cover": cover,
+                            "artist": artist,
+                            "title": title
+                        }
+                        return details;
+                    }
+                 }
+                }
 
                 async function getID(list) {
                         //getting the details for each title'
@@ -127,13 +247,11 @@ router.get("/videos/:q/", async function(req, res) {
                 async function filterVersion(item) {
                     var filtered = await checkRated(item);
                     if(filtered == "no") {
-                       // console.log("not selected");
                     }
                     else {
                         return await filterDecade(filtered);
                     }
                    async function filterDecade(item) {
-                       //console.log(item);
                         let range = {
                             "max_year": "0",
                             "min_year": "0"
