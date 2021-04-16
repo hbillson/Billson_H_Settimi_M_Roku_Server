@@ -37,6 +37,7 @@ router.get("/videos/:q/", async function(req, res) {
 })
 
         router.get("/media/:version/:type/:decade/", async function(req, res) {
+            console.log(`api connection successful. getting results for ${req.params.decade}, ${req.params.type}, ${req.params.version}`);
             let decade = req.params.decade 
             let type = req.params.type;
             let version = req.params.version;
@@ -91,33 +92,26 @@ router.get("/videos/:q/", async function(req, res) {
                         } else if (decade=="nineties") {
                             q = "1990s+hits+playlist";
                         }
-                        url = `https://youtube-search-results.p.rapidapi.com/youtube-search/?q=${q}`;
+
+
+                        url = `https://youtube.googleapis.com/youtube/v3/search?maxResults=1&q=${q}&type=playlist&key=AIzaSyCldbbSMp26ITf_rmQoliAOXky-ZcQUcuw`;
                         var response = await fetch(url, {
                             "method": "GET",
-                            "headers": headers
                         }) 
                         .then(response => response.json())
-                        .then(data =>getSongs(data))
+                        .then(data => getSongs(data))
                         .catch((err) => console.log(err));
                         return await response;
                     }
                     
-                    async function getSongs(list) {
-                        let playlist = {};
-                        for(let i = 0; i<Object.entries(list).length; i++) {
-                            if(list["items"][i]["type"] == "playlist") {
-                                playlist = list["items"][i]["playlistID"];
-                                i = Object.entries(list).length;
-                            }
-                        }
-                        let headers = {
-                            "x-rapidapi-key": "6d810c5c17mshac4a8e74973b5f5p170738jsn1558e894e034",
-                            "x-rapidapi-host": "youtube-v31.p.rapidapi.com"
-                        }
+                    async function getSongs(playlist) {
+                        playlist = playlist["items"][0]["id"]["playlistId"];
+                        //console.log(playlist);
                       url = `https://youtube-v31.p.rapidapi.com/playlistItems?playlistId=${playlist}&part=snippet&maxResults=20`;
                         var response = await fetch(url, {
                          "method": "GET",
-                         "headers": headers
+                         "headers": { "x-rapidapi-key": "6d810c5c17mshac4a8e74973b5f5p170738jsn1558e894e034",
+                         "x-rapidapi-host": "youtube-v31.p.rapidapi.com" }
                      }) 
                      .then(response => response.json())
                      .then(data => getInfo(data))
@@ -134,8 +128,8 @@ router.get("/videos/:q/", async function(req, res) {
                         let song = {
                             id: "",
                             title: "",
-                            artist: "jimmy",
-                            cover: "https://cloud.netlifyusercontent.com/assets/344dbf88-fdf9-42bb-adb4-46f01eedd629/6d05daa9-225d-4bf2-9a78-5fcb52abce7a/58.jpg", 
+                            artist: "",
+                            cover: "", 
                         }
                         let id = list["items"][i]["snippet"]["resourceId"]["videoId"];
                         let title = list["items"][i]["snippet"]["title"];
@@ -144,6 +138,11 @@ router.get("/videos/:q/", async function(req, res) {
                         title = title.replace("HQ", "");
                         title = title.replace("Audio", "");
                         title = title.replace("HD", "");
+                        title = title.replace("Official Video", "");
+                        title = title.replace("Official Music Video", "");
+                        title = title.replace(/[^a-zA-Z ]/g, "");
+                        title = title.trim();
+                        title.replace(/[0-9]/g, '');
                         title = encodeURI(title);
                         song.id = id;
                         var deets = await getSongDeets(title);
@@ -160,22 +159,27 @@ router.get("/videos/:q/", async function(req, res) {
                 }
 
                 async function getSongDeets(song) {
-                    url = `https://deezerdevs-deezer.p.rapidapi.com/search?q=${song}`
-                    var response = await fetch(url, {
-                     "method": "GET",
-                     "headers": {
-                        "x-rapidapi-key": "6d810c5c17mshac4a8e74973b5f5p170738jsn1558e894e034",
-                        "x-rapidapi-host": "deezerdevs-deezer.p.rapidapi.com"
+                    url = `https://api.discogs.com/database/search?q=${song}&per_page=5&page=1&token=dXtpEukLgaTPuPHWVmajYMxWaqRJWiZOIlhKxNZM`;
+                    
+                    if(song["results"][0]["type"]) {
+                        
                     }
-                 }) 
-                 .then(response => response.json())
-                 .then(data => deets(data))
-                 .catch((err) => console.log(err));
-                 return await response;
+                    var response = await fetch(url, {
+                        "method": "GET"
+                    }
+                    ) 
+                    .then(response => response.json())
+                    .then(data =>deets(data))
+                    .catch((err) => console.log(err));
+                    console.log(response);
+                    return await response;
 
                 async function deets(song) {
-                    if(song["data"].length < 1) {
+                    console.log(song);
+                    if(song["results"].length < 1) {
+                        console.log("none found :(");
                         var details = {
+                            "id": "0",
                             "title": "Unknown",
                             "artist": "Unknown Artist",
                             "cover": "https://cloud.netlifyusercontent.com/assets/344dbf88-fdf9-42bb-adb4-46f01eedd629/6d05daa9-225d-4bf2-9a78-5fcb52abce7a/58.jpg",     
@@ -183,14 +187,17 @@ router.get("/videos/:q/", async function(req, res) {
                         return details;
  
                     } else {
-                        let cover = song["data"][0]["album"]["cover_big"];
-                        let artist = song["data"][0]["artist"]["name"];
-                        let title = song["data"][0]["title"];
+                        let name = song["results"][0]["title"];
+                        var temp = name.split("-");
+                        let title = temp[0].trim();
+                        let artist = temp[1].trim();
+                        let cover = song["results"][0]["cover_image"];
                         var details = {
-                            "cover": cover,
                             "artist": artist,
-                            "title": title
-                        }
+                            "title": title,
+                            "cover": cover
+                         }
+                         console.log(details);
                         return details;
                     }
                  }
