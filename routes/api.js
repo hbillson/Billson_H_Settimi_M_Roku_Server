@@ -161,9 +161,6 @@ router.get("/videos/:q/", async function(req, res) {
                 async function getSongDeets(song) {
                     url = `https://api.discogs.com/database/search?q=${song}&per_page=5&page=1&token=dXtpEukLgaTPuPHWVmajYMxWaqRJWiZOIlhKxNZM`;
                     
-                    if(song["results"][0]["type"]) {
-                        
-                    }
                     var response = await fetch(url, {
                         "method": "GET"
                     }
@@ -171,12 +168,12 @@ router.get("/videos/:q/", async function(req, res) {
                     .then(response => response.json())
                     .then(data =>deets(data))
                     .catch((err) => console.log(err));
-                    console.log(response);
+                    //console.log(response);
                     return await response;
 
                 async function deets(song) {
-                    console.log(song);
-                    if(song["results"].length < 1) {
+                    //console.log((Object.entries(song["results"]).length));
+                    if(Object.entries(song["results"]).length < 1) {
                         console.log("none found :(");
                         var details = {
                             "id": "0",
@@ -185,20 +182,30 @@ router.get("/videos/:q/", async function(req, res) {
                             "cover": "https://cloud.netlifyusercontent.com/assets/344dbf88-fdf9-42bb-adb4-46f01eedd629/6d05daa9-225d-4bf2-9a78-5fcb52abce7a/58.jpg",     
                         }
                         return details;
- 
-                    } else {
-                        let name = song["results"][0]["title"];
-                        var temp = name.split("-");
-                        let title = temp[0].trim();
-                        let artist = temp[1].trim();
-                        let cover = song["results"][0]["cover_image"];
-                        var details = {
-                            "artist": artist,
-                            "title": title,
-                            "cover": cover
-                         }
-                         console.log(details);
-                        return details;
+                    } else  { 
+                        for(let i=0; i<Object.entries(song["results"]).length; i++) {
+                            let thissong = song["results"][i];
+                            console.log(thissong);
+                            //console.log(thissong.type);
+                            if(thissong["type"] == "release") {
+                                let name = thissong["title"];
+                                console.log("this is a release!");
+                                var temp = name.split("-");
+                                let artist = temp[0].trim();
+                                let title = temp[1].trim();
+                                let cover = thissong["cover_image"];
+                                var details = {
+                                    "artist": artist,
+                                    "title": title,
+                                    "cover": cover
+                                 }
+                                 //console.log(details);
+                                return details;
+                            } else {
+                                console.log("not a release :/");
+                            }
+                        }
+
                     }
                  }
                 }
